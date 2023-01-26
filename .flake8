@@ -1,0 +1,10 @@
+[flake8]
+exclude =
+    .env,
+    .git,
+    .github,
+    .pytest_cache,
+    .venv,
+    __pycache__,
+    **/migrations/**
+max-line-length = 120
