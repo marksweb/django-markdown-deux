@@ -19,10 +19,12 @@ def markdown(text, style="default"):
     import markdown2
     return markdown2.markdown(text, **get_style(style))
 
+
 def get_style(style):
     from markdown_deux.conf import settings
     try:
         return settings.MARKDOWN_DEUX_STYLES[style]
     except KeyError:
-        return settings.MARKDOWN_DEUX_STYLES.get("default",
-            settings.MARKDOWN_DEUX_DEFAULT_STYLE)
+        return settings.MARKDOWN_DEUX_STYLES.get(
+            "default", settings.MARKDOWN_DEUX_DEFAULT_STYLE
+        )

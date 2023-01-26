@@ -1,20 +1,19 @@
-
 # This is a Makefile for the `mk` tool. (Limited) details for that here:
 # <http://svn.openkomodo.com/openkomodo/browse/mk>
 
-import sys
-import os
-from os.path import join, dirname, normpath, abspath, exists, basename
-import re
-from glob import glob
 import codecs
+import os
+import re
+import sys
 import webbrowser
+from glob import glob
+from os.path import abspath, dirname, join, normpath
 
 import mklib
+
 assert mklib.__version_info__ >= (0,7,2)  # for `mklib.mk`
+from mklib import Task, mk, sh
 from mklib.common import MkError
-from mklib import Task, mk
-from mklib import sh
 
 
 class bugs(Task):
@@ -58,7 +57,7 @@ class cut_a_release(Task):
             if answer != "yes":
                 self.log.info("user abort")
                 return
-            print "* * *"
+            print("* * *")
         self.log.info("cutting a %s release", version)
 
         # Checks: Ensure there is a section in changes for this version.
@@ -79,7 +78,7 @@ class cut_a_release(Task):
             if answer != "no":
                 self.log.info("abort")
                 return
-            print "* * *"
+            print("* * *")
         top_body = changes_sections[0][2]
         if top_body.strip() == "(nothing yet)":
             raise MkError("top section body is `(nothing yet)': it looks like "
@@ -96,10 +95,10 @@ class cut_a_release(Task):
                 % (changes_path, version), self.log.debug)
 
         # Tag version and push.
-        curr_tags = set(t for t in _capture_stdout(["git", "tag", "-l"]).split('\n') if t)
+        curr_tags = {t for t in _capture_stdout(["git", "tag", "-l"]).split('\n') if t}
         if not DRY_RUN and version not in curr_tags:
             self.log.info("tag the release")
-            sh.run('git tag -a "%s" -m "version %s"' % (version, version),
+            sh.run(f'git tag -a "{version}" -m "version {version}"',
                 self.log.debug)
             sh.run('git push --tags', self.log.debug)
 
@@ -111,12 +110,12 @@ class cut_a_release(Task):
         # Commits to prepare for future dev and push.
         next_version = self._get_next_version(version)
         self.log.info("prepare for future dev (version %s)", next_version)
-        marker = "## %s %s\n" % (self.proj_name, version)
+        marker = f"## {self.proj_name} {version}\n"
         if marker not in changes_txt:
             raise MkError("couldn't find `%s' marker in `%s' "
                 "content: can't prep for subsequent dev" % (marker, changes_path))
-        changes_txt = changes_txt.replace("## %s %s\n" % (self.proj_name, version),
-            "## %s %s (not yet released)\n\n(nothing yet)\n\n## %s %s\n" % (
+        changes_txt = changes_txt.replace(f"## {self.proj_name} {version}\n",
+            "## {} {} (not yet released)\n\n(nothing yet)\n\n## {} {}\n".format(
                 self.proj_name, next_version, self.proj_name, version))
         if not DRY_RUN:
             f = codecs.open(changes_path, 'w', 'utf-8')
@@ -127,19 +126,19 @@ class cut_a_release(Task):
         ver_content = codecs.open(ver_path, 'r', 'utf-8').read()
         version_tuple = self._tuple_from_version(version)
         next_version_tuple = self._tuple_from_version(next_version)
-        marker = "__version_info__ = %r" % (version_tuple,)
+        marker = f"__version_info__ = {version_tuple!r}"
         if marker not in ver_content:
             raise MkError("couldn't find `%s' version marker in `%s' "
                 "content: can't prep for subsequent dev" % (marker, ver_path))
         ver_content = ver_content.replace(marker,
-            "__version_info__ = %r" % (next_version_tuple,))
+            f"__version_info__ = {next_version_tuple!r}")
         if not DRY_RUN:
             f = codecs.open(ver_path, 'w', 'utf-8')
             f.write(ver_content)
             f.close()
         
         if not DRY_RUN:
-            sh.run('git commit %s %s -m "prep for future dev"' % (
+            sh.run('git commit {} {} -m "prep for future dev"'.format(
                 changes_path, ver_path))
             sh.run('git push')
     
@@ -211,10 +210,10 @@ class todo(Task):
                 excludes=[".svn", "*.pyc", "TO""DO.txt", "Makefile.py",
                           "*.png", "*.gif", "*.pprint", "*.prof",
                           "tmp*"]):
-            self._dump_pattern_in_path("TO\DO\\|XX\X", path)
+            self._dump_pattern_in_path("TO\\DO\\|XX\\X", path)
 
     def _dump_pattern_in_path(self, pattern, path):
-        os.system("grep -nH '%s' '%s'" % (pattern, path))
+        os.system(f"grep -nH '{pattern}' '{path}'")
 
 
 
@@ -258,8 +257,8 @@ def query_yes_no(question, default="yes"):
 ## {{{ http://code.activestate.com/recipes/577230/ (r2)
 def _should_include_path(path, includes, excludes):
     """Return True iff the given path should be included."""
-    from os.path import basename
     from fnmatch import fnmatch
+    from os.path import basename
 
     base = basename(path)
     if includes:
@@ -302,7 +301,7 @@ def _walk(top, topdown=True, onerror=None, follow_symlinks=False):
     TODO: put as a separate recipe
     """
     import os
-    from os.path import join, isdir, islink, abspath
+    from os.path import abspath, isdir, islink, join
 
     # We may not have read permission for top, in which case we can't
     # get a list of the files the directory contains.  os.path.walk
@@ -311,7 +310,7 @@ def _walk(top, topdown=True, onerror=None, follow_symlinks=False):
     # left to visit.  That logic is copied here.
     try:
         names = os.listdir(top)
-    except OSError, err:
+    except OSError as err:
         if onerror is not None:
             onerror(err)
         return
@@ -343,8 +342,7 @@ def _walk(top, topdown=True, onerror=None, follow_symlinks=False):
             link_abs = abspath(join(top, os.readlink(path)))
             if not link_abs.startswith(top_abs + os.sep):
                 continue
-        for x in _walk(path, topdown, onerror, follow_symlinks=follow_symlinks):
-            yield x
+        yield from _walk(path, topdown, onerror, follow_symlinks=follow_symlinks)
     if not topdown:
         yield top, dirs, nondirs
 
@@ -433,9 +431,8 @@ def _paths_from_path_patterns(path_patterns, files=True, dirs="never",
 
     TODO: perf improvements (profile, stat just once)
     """
-    from os.path import basename, exists, isdir, join, normpath, abspath, \
-                        lexists, islink, realpath
     from glob import glob
+    from os.path import abspath, exists, isdir, islink, join, lexists, normpath, realpath
 
     assert not isinstance(path_patterns, basestring), \
         "'path_patterns' must be a sequence, not a string: %r" % path_patterns
